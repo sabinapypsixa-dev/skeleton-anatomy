@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Интерактивный скелет человека</title>
+    <style>
+        /* --- СТИЛИ --- */
+        :root {
+            --bg-color: #F2F2F7;
+            --card-bg: #FFFFFF;
+            --accent-color: #007AFF;
+            --text-main: #1C1C1E;
+            --text-secondary: #8E8E93;
+            --radius: 16px;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 { font-weight: 700; margin-bottom: 30px; font-size: 2rem; text-align: center; }
+
+        .main-container {
+            display: flex;
+            gap: 40px;
+            max-width: 1200px;
+            width: 100%;
+            align-items: flex-start;
+            justify-content: center;
+        }
+
+        .skeleton-view { flex: 1; display: flex; justify-content: center; position: relative; }
+
+        .image-wrapper {
+            position: relative;
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            background: white;
+            max-width: 500px;
+            width: 100%;
+            min-height: 600px; /* Чтобы блок не схлопывался */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #skeleton-image { display: block; width: 100%; height: auto; cursor: pointer; }
+
+        .info-panel {
+            flex: 1;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 20px;
+            min-height: 400px; 
+        }
+
+        h2 { font-size: 1.5rem; margin-bottom: 10px; }
+        h3 { color: var(--accent-color); margin-bottom: 5px; font-size: 1.8rem;}
+        
+        .latin-name { color: var(--text-secondary); font-style: italic; margin-bottom: 20px; display: block; font-size: 1.1rem; }
+
+        .fact-list { list-style: none; margin-top: 15px; }
+        .fact-list li {
+            background: #F2F8FF;
+            margin-bottom: 8px;
+            padding: 10px 15px;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent-color);
+            font-size: 0.95rem;
+        }
+
+        .tags-container { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+        .bone-tag {
+            background: white; border: 1px solid #E5E5EA; padding: 8px 12px;
+            border-radius: 20px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; color: var(--text-main);
+        }
+        .bone-tag:hover { border-color: var(--accent-color); color: var(--accent-color); }
+        .bone-tag.active { background: var(--accent-color); color: white; border-color: var(--accent-color); }
+
+        /* Разделитель в тегах */
+        .tags-divider {
+            width: 100%;
+            font-size: 0.75rem;
+            color: #ccc;
+            margin: 10px 0 5px 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: bold;
+        }
+
+        /* Стили для экзамена */
+        .quiz-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(90deg, #FF9500, #FF3B30);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 10px rgba(255, 59, 48, 0.3);
+            transition: transform 0.2s;
+        }
+        .quiz-btn:hover { transform: scale(1.02); }
+
+        /* Стиль для активной подсветки */
+        #active-highlight {
+            position: absolute;
+            display: none;
+            background-color: rgba(0, 122, 255, 0.2);
+            border: 2px solid #007AFF;
+            border-radius: 8px;
+            pointer-events: none;
+            transition: all 0.3s ease;
+            z-index: 20;
+            box-shadow: 0 0 15px rgba(0, 122, 255, 0.4);
+        }
+
+        /* Инструменты разработчика */
+        .dev-tools { margin-top: 50px; padding-bottom: 50px; opacity: 0.3; transition: opacity 0.3s; text-align: center; width: 100%; max-width: 600px; }
+        .dev-tools:hover { opacity: 1; }
+        .tool-btn { background: #8E8E93; color: white; padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer; margin: 5px; font-size: 0.8rem; }
+        .coord-tool { background: #fff; border: 1px solid #ddd; padding: 20px; margin-top: 10px; border-radius: var(--radius); display: none; text-align: left; }
+        .coord-tool.active { display: block; }
+        
+        .area-debug { position: absolute; border: 2px dashed rgba(255, 59, 48, 0.7); background: rgba(255, 59, 48, 0.1); pointer-events: none; display: none; z-index: 10; }
+        .coord-marker { position: absolute; width: 10px; height: 10px; background: #ff0000; border-radius: 50%; pointer-events: none; display: none; z-index: 30; }
+
+        @media (max-width: 768px) {
+            .main-container { flex-direction: column; align-items: center; }
+            .info-panel { width: 100%; position: static; min-height: auto; }
+            .image-wrapper { width: 100%; max-width: 400px; margin: 0 auto; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🦴 Интерактивный скелет человека</h1>
+
+    <div class="main-container">
+        <div class="skeleton-view">
+            <div class="image-wrapper">
+                <img src="myscil.jpg" 
+                     alt="Скелет человека" 
+                     id="skeleton-image" 
+                     usemap="#skeleton-map"
+                     onerror="this.onerror=null; this.src='https://upload.wikimedia.org/wikipedia/commons/thumb/7/77/Human_skeleton_front_en.svg/500px-Human_skeleton_front_en.svg.png'; alert('Не найден файл myscil.jpg! Загружена запасная картинка из интернета.');">
+                
+                <map name="skeleton-map" id="skeleton-map"></map>
+                <div id="active-highlight"></div>
+                <div id="click-marker" class="coord-marker"></div>
+                <div id="debug-areas"></div>
+            </div>
+        </div>
+
+        <div class="info-panel" id="info-box">
+            <button class="quiz-btn" onclick="toggleQuiz()">🎓 Режим Экзамена</button>
+
+            <div id="default-content">
+                <h2>Добро пожаловать 👋</h2>
+                <p style="color: #666; margin-bottom: 20px;">Нажмите на любую часть скелета или выберите из списка ниже, чтобы узнать подробности.</p>
+            </div>
+
+            <div id="bone-info"></div>
+
+            <div id="tags-section" style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+                <p style="font-size: 0.8rem; text-transform: uppercase; color: #888; margin-bottom: 10px; letter-spacing: 1px;">Быстрый выбор:</p>
+                <div class="tags-container bone-buttons">
+                    <button class="bone-tag" data-bone="череп">Череп</button>
+                    <button class="bone-tag" data-bone="позвоночник">Позвоночник</button>
+                    <button class="bone-tag" data-bone="грудная клетка">Грудная</button>
+                    <button class="bone-tag" data-bone="таз">Таз</button>
+
+                    <div class="tags-divider">Руки</div>
+                    <button class="bone-tag" data-bone="плечо_левое">Плечо (Л)</button>
+                    <button class="bone-tag" data-bone="плечо_правое">Плечо (П)</button>
+                    <button class="bone-tag" data-bone="предплечье_левое">Предплечье (Л)</button>
+                    <button class="bone-tag" data-bone="предплечье_правое">Предплечье (П)</button>
+                    <button class="bone-tag" data-bone="кисть_левая">Кисть (Л)</button>
+                    <button class="bone-tag" data-bone="кисть_правая">Кисть (П)</button>
+
+                    <div class="tags-divider">Ноги</div>
+                    <button class="bone-tag" data-bone="бедро_левое">Бедро (Л)</button>
+                    <button class="bone-tag" data-bone="бедро_правое">Бедро (П)</button>
+                    <button class="bone-tag" data-bone="голень_левая">Голень (Л)</button>
+                    <button class="bone-tag" data-bone="голень_правая">Голень (П)</button>
+                    <button class="bone-tag" data-bone="стопа_левая">Стопа (Л)</button>
+                    <button class="bone-tag" data-bone="стопа_правая">Стопа (П)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dev-tools">
+        <p style="font-size: 0.8rem; margin-bottom: 5px;">Панель создателя</p>
+        <button class="tool-btn" id="toggle-tool">🛠 Настройка координат</button>
+        <button class="tool-btn" id="debug-toggle">👀 Показать зоны</button>
+        
+        <div class="coord-tool" id="coord-tool">
+            <h3>🔧 Инструмент настройки</h3>
+            <p><strong>Последний клик:</strong> <span id="coords-display">...</span></p>
+            <p><strong>Выбранная кость:</strong> 
+                <select id="bone-select" style="padding: 5px; border-radius: 5px; border: 1px solid #ccc;">
+                    <option value="череп">Череп</option>
+                    <option value="позвоночник">Позвоночник</option>
+                    <option value="грудная клетка">Грудная клетка</option>
+                    <option value="таз">Таз</option>
+                    <option value="плечо_левое">Плечо (левое)</option>
+                    <option value="плечо_правое">Плечо (правое)</option>
+                    <option value="предплечье_левое">Предплечье (левое)</option>
+                    <option value="предплечье_правое">Предплечье (правое)</option>
+                    <option value="кисть_левая">Кисть (левая)</option>
+                    <option value="кисть_правая">Кисть (правая)</option>
+                    <option value="бедро_левое">Бедро (левое)</option>
+                    <option value="бедро_правое">Бедро (правое)</option>
+                    <option value="голень_левая">Голень (левая)</option>
+                    <option value="голень_правая">Голень (правая)</option>
+                    <option value="стопа_левая">Стопа (левая)</option>
+                    <option value="стопа_правая">Стопа (правая)</option>
+                </select>
+            </p>
+            <p>Текущие: <span id="current-bone-coords"></span></p>
+            <div style="margin-top: 10px;">
+                <button class="tool-btn" id="set-coords" style="background: #34C759;">Записать</button>
+                <button class="tool-btn" id="finish-tool" style="background: #007AFF;">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+       // Данные о костях
+        const bonesData = {
+            "череп": {
+                name: "Череп", latin: "Cranium", desc: "Защищает головной мозг.", 
+                facts: ["23 кости", "Самая твёрдая кость"],
+                trauma: ["Сотрясение мозга", "Перелом свода"], doctor: "Невролог, Травматолог"
+            },
+            "позвоночник": {
+                name: "Позвоночник", latin: "Columna vertebralis", desc: "Опора тела.", 
+                facts: ["33-34 позвонка", "S-образная форма"],
+                trauma: ["Грыжа диска", "Сколиоз"], doctor: "Невролог, Ортопед"
+            },
+            "грудная клетка": {
+                name: "Грудная клетка", latin: "Thorax", desc: "Защищает сердце и лёгкие.", 
+                facts: ["12 пар рёбер", "Включает грудину"],
+                trauma: ["Перелом ребер", "Ушиб"], doctor: "Травматолог"
+            },
+            "таз": {
+                name: "Таз", latin: "Pelvis", desc: "Поддерживает внутренние органы.", 
+                facts: ["Женский таз шире", "Соединяет ноги с позвоночником"],
+                trauma: ["Перелом шейки бедра", "Ушиб таза"], doctor: "Травматолог"
+            },
+            "плечо_левое": {
+                name: "Плечо (левое)", latin: "Humerus sinister", desc: "Кость верхней конечности.", 
+                facts: ["Самая длинная в руке", "Соединяет лопатку с локтем"],
+                trauma: ["Вывих плеча"], doctor: "Травматолог"
+            },
+            "плечо_правое": {
+                name: "Плечо (правое)", latin: "Humerus dexter", desc: "Кость верхней конечности.", 
+                facts: ["Самая длинная в руке", "Соединяет лопатку с локтем"],
+                trauma: ["Вывих плеча"], doctor: "Травматолог"
+            },
+            "предплечье_левое": {
+                name: "Предплечье (левое)", latin: "Radius et ulna", desc: "Две кости предплечья.", 
+                facts: ["Локтевая и лучевая", "Лучевая вращается"],
+                trauma: ["Перелом лучевой кости"], doctor: "Травматолог"
+            },
+            "предплечье_правое": {
+                name: "Предплечье (правое)", latin: "Radius et ulna", desc: "Две кости предплечья.", 
+                facts: ["Локтевая и лучевая", "Лучевая вращается"],
+                trauma: ["Перелом лучевой кости"], doctor: "Травматолог"
+            },
+            "кисть_левая": {
+                name: "Кисть (левая)", latin: "Manus sinistra", desc: "Кости кисти.", 
+                facts: ["27 костей", "Запястье, пястье, фаланги"],
+                trauma: ["Туннельный синдром"], doctor: "Кистевой хирург"
+            },
+            "кисть_правая": {
+                name: "Кисть (правая)", latin: "Manus dextra", desc: "Кости кисти.", 
+                facts: ["27 костей", "Запястье, пястье, фаланги"],
+                trauma: ["Туннельный синдром"], doctor: "Кистевой хирург"
+            },
+            "бедро_левое": {
+                name: "Бедро (левое)", latin: "Femur sinistrum", desc: "Самая длинная кость.", 
+                facts: ["Выдерживает 1500 кг", "Соединяет таз с коленом"],
+                trauma: ["Перелом бедра"], doctor: "Травматолог"
+            },
+            "бедро_правое": {
+                name: "Бедро (правое)", latin: "Femur dextrum", desc: "Самая длинная кость.", 
+                facts: ["Выдерживает 1500 кг", "Соединяет таз с коленом"],
+                trauma: ["Перелом бедра"], doctor: "Травматолог"
+            },
+            "голень_левая": {
+                name: "Голень (левая)", latin: "Tibia et fibula", desc: "Кости голени.", 
+                facts: ["Большеберцовая и малоберцовая"],
+                trauma: ["Перелом голени"], doctor: "Травматолог"
+            },
+            "голень_правая": {
+                name: "Голень (правая)", latin: "Tibia et fibula", desc: "Кости голени.", 
+                facts: ["Большеберцовая и малоберцовая"],
+                trauma: ["Перелом голени"], doctor: "Травматолог"
+            },
+            "стопа_левая": {
+                name: "Стопа (левая)", latin: "Pes sinister", desc: "Кости стопы.", 
+                facts: ["26 костей", "Сводчатая конструкция"],
+                trauma: ["Плоскостопие"], doctor: "Ортопед"
+            },
+            "стопа_правая": {
+                name: "Стопа (правая)", latin: "Pes dexter", desc: "Кости стопы.", 
+                facts: ["26 костей", "Сводчатая конструкция"],
+                trauma: ["Плоскостопие"], doctor: "Ортопед"
+            }
+        };
+
+        // Координаты
+        let areasCoords = {      
+            "череп": "211,2,291,82",
+            "позвоночник": "246,199,256,349",
+            "грудная клетка": "175,187,325,257",
+            "таз": "205,363,295,423",
+            
+            // ПРАВАЯ СТОРОНА СКЕЛЕТА (слева на экране)
+            "плечо_правое": "128,205,178,275",
+            "предплечье_правое": "114,343,164,403",
+            "кисть_правая": "102,458,152,498",
+            "бедро_правое": "207,451,247,551",
+            "голень_правая": "187,669,267,749",
+            "стопа_правая": "172,805,252,885",
+
+            // ЛЕВАЯ СТОРОНА СКЕЛЕТА (справа на экране)
+            "плечо_левое": "317,199,367,269",
+            "предплечье_левое": "340,351,390,411",
+            "кисть_левая": "349,457,399,497",
+            "бедро_левое": "255,450,295,550",
+            "голень_левая": "234,679,314,759",
+            "стопа_левая": "246,809,326,889"
+        };
+
+        // Элементы
+        const skeletonImage = document.getElementById('skeleton-image');
+        const infoBox = document.getElementById('info-box');
+        const boneInfo = document.getElementById('bone-info');
+        const defaultContent = document.getElementById('default-content');
+        const tagsSection = document.getElementById('tags-section');
+        const boneButtons = document.querySelectorAll('.bone-tag');
+        
+        // Инструменты
+        const coordTool = document.getElementById('coord-tool');
+        const toggleToolBtn = document.getElementById('toggle-tool');
+        const debugToggleBtn = document.getElementById('debug-toggle');
+        const coordsDisplay = document.getElementById('coords-display');
+        const boneSelect = document.getElementById('bone-select');
+        const currentBoneCoords = document.getElementById('current-bone-coords');
+        const setCoordsBtn = document.getElementById('set-coords');
+        const finishToolBtn = document.getElementById('finish-tool');
+        const clickMarker = document.getElementById('click-marker');
+        const debugAreasContainer = document.getElementById('debug-areas');
+        
+        let toolActive = false;
+        let debugActive = false;
+        let lastClickCoords = {x: 0, y: 0};
+        
+        // Переменные для Экзамена
+        let isQuizMode = false;
+        let quizTargetBone = null;
+        let quizScore = 0;
+        let questionsQueue = []; 
+
+        // ========== ОЗВУЧКА ==========
+        function speakText(text) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'ru-RU'; 
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // ========== ЛОГИКА ЭКЗАМЕНА ==========
+        function toggleQuiz() {
+            if (isQuizMode) {
+                stopQuiz();
+            } else {
+                startQuiz();
+            }
+        }
+
+        function startQuiz() {
+            isQuizMode = true;
+            quizScore = 0;
+            questionsQueue = Object.keys(bonesData);
+            
+            document.querySelector('.quiz-btn').textContent = "⏹ Закончить экзамен";
+            document.querySelector('.quiz-btn').style.background = "#FF3B30";
+            
+            defaultContent.style.display = 'none';
+            tagsSection.style.display = 'none';
+            
+            nextQuestion();
+        }
+
+        function stopQuiz() {
+            isQuizMode = false;
+            document.querySelector('.quiz-btn').textContent = "🎓 Режим Экзамена";
+            document.querySelector('.quiz-btn').style.background = "linear-gradient(90deg, #FF9500, #FF3B30)";
+            
+            defaultContent.style.display = 'block';
+            tagsSection.style.display = 'flex';
+            boneInfo.innerHTML = "";
+            
+            const highlight = document.getElementById('active-highlight');
+            if (highlight) highlight.style.display = 'none';
+        }
+
+        function nextQuestion() {
+            if (questionsQueue.length === 0) {
+                finishQuizSuccess();
+                return;
+            }
+
+            const randomIndex = Math.floor(Math.random() * questionsQueue.length);
+            quizTargetBone = questionsQueue.splice(randomIndex, 1)[0];
+
+            boneInfo.innerHTML = `
+                <div style="text-align: center; padding: 20px 0;">
+                    <p style="font-size: 1.2rem; color: #555;">Счет: <strong>${quizScore}</strong></p>
+                    <p style="font-size: 0.9rem; color: #999;">Осталось вопросов: ${questionsQueue.length + 1}</p>
+                    <hr style="margin: 15px 0; border: 0; border-top: 1px solid #eee;">
+                    <p style="margin-bottom: 10px;">Покажите на скелете:</p>
+                    <h2 style="color: #007AFF; font-size: 2rem;">${bonesData[quizTargetBone].name}</h2>
+                </div>
+            `;
+            
+            speakText("Где находится " + bonesData[quizTargetBone].name + "?");
+            
+            const highlight = document.getElementById('active-highlight');
+            if (highlight) highlight.style.display = 'none';
+        }
+
+        function finishQuizSuccess() {
+            speakText("Поздравляю! Вы нашли все кости!");
+            boneInfo.innerHTML = `
+                <div style="text-align: center; padding: 40px 0;">
+                    <h1 style="font-size: 3rem;">🏆</h1>
+                    <h2 style="color: #34C759; margin-bottom: 10px;">Экзамен сдан!</h2>
+                    <p style="font-size: 1.2rem;">Ваш итоговый счет: <strong>${quizScore}</strong></p>
+                    <p style="color: #666; margin-top: 20px;">Вы нашли абсолютно все части скелета.</p>
+                    <button onclick="startQuiz()" style="margin-top: 20px; padding: 10px 20px; background: #007AFF; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem;">Начать заново</button>
+                </div>
+            `;
+        }
+
+        function checkAnswer(clickedBone) {
+            if (clickedBone === quizTargetBone) {
+                quizScore++;
+                speakText("Правильно!");
+                boneInfo.innerHTML = `
+                    <div style="text-align: center; padding: 40px 0;">
+                        <h2 style="color: #34C759; font-size: 2.5rem;">Верно! 🎉</h2>
+                    </div>
+                `;
+                setTimeout(nextQuestion, 1200); 
+            } else {
+                speakText("Неверно. Это " + bonesData[clickedBone].name);
+                alert("❌ Ошибка! Вы нажали на: " + bonesData[clickedBone].name + "\nИщите: " + bonesData[quizTargetBone].name);
+            }
+        }
+
+        // ========== ОТОБРАЖЕНИЕ ИНФО ==========
+        function showBoneInfo(boneKey) {
+            const bone = bonesData[boneKey];
+            if (!bone) return;
+            if (toolActive) return;
+
+            boneInfo.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <h3>${bone.name}</h3>
+                    <button onclick="speakText('${bone.name}. ${bone.desc}')" style="border: none; background: none; cursor: pointer; font-size: 1.5rem;">
+                        🔊
+                    </button>
+                </div>
+                
+                <span class="latin-name">${bone.latin}</span>
+                <p style="line-height: 1.6; color: #444;">${bone.desc}</p>
+                
+                <div style="background: #FFF5F5; padding: 10px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #FF3B30;">
+                    <strong>🚑 Частые травмы:</strong>
+                    <p style="font-size: 0.9rem; margin-top: 5px;">${bone.trauma ? bone.trauma.join(", ") : "Нет данных"}</p>
+                </div>
+
+                <div style="margin-top: 10px; font-size: 0.9rem; color: #555;">
+                    👨‍⚕️ <strong>Врач:</strong> ${bone.doctor || "Терапевт"}
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <strong style="color: #2c3e50;">Интересные факты:</strong>
+                    <ul class="fact-list">
+                        ${bone.facts.map(fact => `<li>${fact}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+            
+            defaultContent.style.display = 'none';
+
+            // Подсветка
+            const coordsStr = areasCoords[boneKey];
+            if (coordsStr) {
+                const [x1, y1, x2, y2] = coordsStr.split(',').map(Number);
+                const highlight = document.getElementById('active-highlight');
+                if (highlight) {
+                    highlight.style.display = 'block';
+                    highlight.style.left = x1 + 'px';
+                    highlight.style.top = y1 + 'px';
+                    highlight.style.width = (x2 - x1) + 'px';
+                    highlight.style.height = (y2 - y1) + 'px';
+                }
+            }
+        }
+
+        // ========== СИСТЕМНЫЕ ФУНКЦИИ ==========
+        function attachAreaEvents() {
+            document.querySelectorAll('area').forEach(area => {
+                area.addEventListener('click', function(event) {
+                    event.preventDefault(); 
+                    const boneKey = this.getAttribute('data-bone');
+
+                    if (isQuizMode) {
+                        checkAnswer(boneKey);
+                    } else {
+                        showBoneInfo(boneKey);
+                    }
+                });
+            });
+        }
+
+        // Обновляем слушатели событий для кнопок (нужно для новых кнопок)
+        document.querySelectorAll('.bone-tag').forEach(button => {
+            button.addEventListener('click', function() {
+                if (isQuizMode) {
+                    alert("В режиме экзамена кнопки не работают! Ищите на картинке.");
+                    return;
+                }
+                const boneKey = this.getAttribute('data-bone');
+                showBoneInfo(boneKey);
+            });
+        });
+
+        function getImageCoords(event) {
+            const rect = skeletonImage.getBoundingClientRect();
+            const x = Math.round(event.clientX - rect.left);
+            const y = Math.round(event.clientY - rect.top);
+            return {x, y};
+        }
+
+        function updateMapAreas() {
+            const map = document.getElementById('skeleton-map');
+            map.innerHTML = '';
+            
+            const currentWidth = skeletonImage.clientWidth || 500;
+            const originalWidth = 500; 
+            const scale = currentWidth / originalWidth;
+
+            for (const [bone, coords] of Object.entries(areasCoords)) {
+                const coordsArray = coords.split(',').map(Number);
+                const scaledCoords = coordsArray.map(num => Math.round(num * scale)).join(',');
+
+                const area = document.createElement('area');
+                area.shape = 'rect';
+                area.coords = scaledCoords;
+                area.alt = bone;
+                area.setAttribute('data-bone', bone);
+                area.style.cursor = 'pointer'; 
+                map.appendChild(area);
+            }
+            updateDebugAreas();
+            attachAreaEvents();
+            localStorage.removeItem('skeletonCoords'); 
+            updateCurrentBoneCoordsDisplay();
+        }
+
+        function updateDebugAreas() {
+            debugAreasContainer.innerHTML = '';
+            if (!debugActive) return;
+            for (const [bone, coords] of Object.entries(areasCoords)) {
+                const [x1, y1, x2, y2] = coords.split(',').map(Number);
+                const debugDiv = document.createElement('div');
+                debugDiv.className = 'area-debug';
+                debugDiv.style.left = x1 + 'px';
+                debugDiv.style.top = y1 + 'px';
+                debugDiv.style.width = (x2 - x1) + 'px';
+                debugDiv.style.height = (y2 - y1) + 'px';
+                debugDiv.style.display = 'block';
+                debugAreasContainer.appendChild(debugDiv);
+            }
+        }
+
+        skeletonImage.addEventListener('click', function(event) {
+            const coords = getImageCoords(event);
+            lastClickCoords = coords;
+            clickMarker.style.left = (coords.x - 5) + 'px';
+            clickMarker.style.top = (coords.y - 5) + 'px';
+            if (toolActive) {
+                clickMarker.style.display = 'block';
+                coordsDisplay.textContent = `${coords.x}, ${coords.y}`;
+            }
+        });
+
+        toggleToolBtn.addEventListener('click', function() {
+            toolActive = !toolActive;
+            coordTool.classList.toggle('active', toolActive);
+            toggleToolBtn.textContent = toolActive ? 'Закрыть настройку' : '🛠 Настройка координат';
+            skeletonImage.style.cursor = toolActive ? 'crosshair' : 'pointer';
+            if (!toolActive) clickMarker.style.display = 'none';
+        });
+
+        debugToggleBtn.addEventListener('click', function() {
+            debugActive = !debugActive;
+            debugToggleBtn.textContent = debugActive ? 'Скрыть зоны' : '👀 Показать зоны';
+            updateDebugAreas();
+        });
+
+        function updateCurrentBoneCoordsDisplay() {
+            const selectedBone = boneSelect.value;
+            currentBoneCoords.textContent = areasCoords[selectedBone] || 'не заданы';
+        }
+        boneSelect.addEventListener('change', updateCurrentBoneCoordsDisplay);
+
+        setCoordsBtn.addEventListener('click', function() {
+            const selectedBone = boneSelect.value;
+            const x = lastClickCoords.x;
+            const y = lastClickCoords.y;
+            const w = 40, h = 40; 
+            const x1 = Math.max(0, x - w);
+            const y1 = Math.max(0, y - h);
+            const x2 = x + w;
+            const y2 = y + h;
+            
+            areasCoords[selectedBone] = `${Math.round(x1)},${Math.round(y1)},${Math.round(x2)},${Math.round(y2)}`;
+            updateCurrentBoneCoordsDisplay();
+            updateMapAreas();
+            alert(`Координаты для "${selectedBone}" обновлены!`);
+        });
+
+        finishToolBtn.addEventListener('click', function() {
+            toolActive = false;
+            coordTool.classList.remove('active');
+            toggleToolBtn.textContent = '🛠 Настройка координат';
+            skeletonImage.style.cursor = 'pointer';
+            clickMarker.style.display = 'none';
+        });
+
+        window.addEventListener('resize', () => { updateMapAreas(); });
+        
+        skeletonImage.onload = updateMapAreas;
+        if (skeletonImage.complete) updateMapAreas();
+    </script>
+</body>
+</html>
