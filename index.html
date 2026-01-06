@@ -49,10 +49,8 @@
             background: white;
             max-width: 500px;
             width: 100%;
-            min-height: 600px; /* Чтобы блок не схлопывался */
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            /* Убрали flex и центровку, чтобы координаты (0,0) всегда были в левом верхнем углу картинки */
+            display: block; 
         }
 
         #skeleton-image { display: block; width: 100%; height: auto; cursor: pointer; }
@@ -91,7 +89,6 @@
         .bone-tag:hover { border-color: var(--accent-color); color: var(--accent-color); }
         .bone-tag.active { background: var(--accent-color); color: white; border-color: var(--accent-color); }
 
-        /* Разделитель в тегах */
         .tags-divider {
             width: 100%;
             font-size: 0.75rem;
@@ -102,7 +99,7 @@
             font-weight: bold;
         }
 
-        /* Стили для экзамена */
+        /* Кнопка экзамена */
         .quiz-btn {
             width: 100%;
             padding: 12px;
@@ -119,7 +116,7 @@
         }
         .quiz-btn:hover { transform: scale(1.02); }
 
-        /* Стиль для активной подсветки */
+        /* Подсветка */
         #active-highlight {
             position: absolute;
             display: none;
@@ -127,7 +124,7 @@
             border: 2px solid #007AFF;
             border-radius: 8px;
             pointer-events: none;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             z-index: 20;
             box-shadow: 0 0 15px rgba(0, 122, 255, 0.4);
         }
@@ -480,7 +477,7 @@
             }
         }
 
-        // ========== ОТОБРАЖЕНИЕ ИНФО ==========
+        // ========== ОТОБРАЖЕНИЕ ИНФО (ИСПРАВЛЕНО ДЛЯ ТЕЛЕФОНА) ==========
         function showBoneInfo(boneKey) {
             const bone = bonesData[boneKey];
             if (!bone) return;
@@ -516,17 +513,22 @@
             
             defaultContent.style.display = 'none';
 
-            // Подсветка
+            // Подсветка (ИСПРАВЛЕННАЯ ЛОГИКА С МАСШТАБОМ)
+            const currentWidth = skeletonImage.clientWidth || 500;
+            const originalWidth = 500;
+            const scale = currentWidth / originalWidth;
+
             const coordsStr = areasCoords[boneKey];
             if (coordsStr) {
                 const [x1, y1, x2, y2] = coordsStr.split(',').map(Number);
                 const highlight = document.getElementById('active-highlight');
                 if (highlight) {
                     highlight.style.display = 'block';
-                    highlight.style.left = x1 + 'px';
-                    highlight.style.top = y1 + 'px';
-                    highlight.style.width = (x2 - x1) + 'px';
-                    highlight.style.height = (y2 - y1) + 'px';
+                    // Умножаем на масштаб, чтобы на телефоне рамка попадала на кость
+                    highlight.style.left = (x1 * scale) + 'px';
+                    highlight.style.top = (y1 * scale) + 'px';
+                    highlight.style.width = ((x2 - x1) * scale) + 'px';
+                    highlight.style.height = ((y2 - y1) * scale) + 'px';
                 }
             }
         }
@@ -595,14 +597,17 @@
         function updateDebugAreas() {
             debugAreasContainer.innerHTML = '';
             if (!debugActive) return;
+            const currentWidth = skeletonImage.clientWidth || 500;
+            const scale = currentWidth / 500;
+
             for (const [bone, coords] of Object.entries(areasCoords)) {
                 const [x1, y1, x2, y2] = coords.split(',').map(Number);
                 const debugDiv = document.createElement('div');
                 debugDiv.className = 'area-debug';
-                debugDiv.style.left = x1 + 'px';
-                debugDiv.style.top = y1 + 'px';
-                debugDiv.style.width = (x2 - x1) + 'px';
-                debugDiv.style.height = (y2 - y1) + 'px';
+                debugDiv.style.left = (x1 * scale) + 'px';
+                debugDiv.style.top = (y1 * scale) + 'px';
+                debugDiv.style.width = ((x2 - x1) * scale) + 'px';
+                debugDiv.style.height = ((y2 - y1) * scale) + 'px';
                 debugDiv.style.display = 'block';
                 debugAreasContainer.appendChild(debugDiv);
             }
@@ -643,13 +648,21 @@
             const selectedBone = boneSelect.value;
             const x = lastClickCoords.x;
             const y = lastClickCoords.y;
-            const w = 40, h = 40; 
-            const x1 = Math.max(0, x - w);
-            const y1 = Math.max(0, y - h);
-            const x2 = x + w;
-            const y2 = y + h;
             
-            areasCoords[selectedBone] = `${Math.round(x1)},${Math.round(y1)},${Math.round(x2)},${Math.round(y2)}`;
+            // Получаем реальные координаты без масштаба для сохранения
+            const currentWidth = skeletonImage.clientWidth || 500;
+            const scale = 500 / currentWidth; // Обратный масштаб
+            
+            const rx = Math.round(x * scale);
+            const ry = Math.round(y * scale);
+            const w = 40; 
+            
+            const x1 = rx - w;
+            const y1 = ry - w;
+            const x2 = rx + w;
+            const y2 = ry + w;
+            
+            areasCoords[selectedBone] = `${x1},${y1},${x2},${y2}`;
             updateCurrentBoneCoordsDisplay();
             updateMapAreas();
             alert(`Координаты для "${selectedBone}" обновлены!`);
