@@ -49,7 +49,7 @@
             background: white;
             max-width: 500px;
             width: 100%;
-            /* Убрали flex и центровку, чтобы координаты (0,0) всегда были в левом верхнем углу картинки */
+            min-height: 600px; 
             display: block; 
         }
 
@@ -129,16 +129,6 @@
             box-shadow: 0 0 15px rgba(0, 122, 255, 0.4);
         }
 
-        /* Инструменты разработчика */
-        .dev-tools { margin-top: 50px; padding-bottom: 50px; opacity: 0.3; transition: opacity 0.3s; text-align: center; width: 100%; max-width: 600px; }
-        .dev-tools:hover { opacity: 1; }
-        .tool-btn { background: #8E8E93; color: white; padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer; margin: 5px; font-size: 0.8rem; }
-        .coord-tool { background: #fff; border: 1px solid #ddd; padding: 20px; margin-top: 10px; border-radius: var(--radius); display: none; text-align: left; }
-        .coord-tool.active { display: block; }
-        
-        .area-debug { position: absolute; border: 2px dashed rgba(255, 59, 48, 0.7); background: rgba(255, 59, 48, 0.1); pointer-events: none; display: none; z-index: 10; }
-        .coord-marker { position: absolute; width: 10px; height: 10px; background: #ff0000; border-radius: 50%; pointer-events: none; display: none; z-index: 30; }
-
         @media (max-width: 768px) {
             .main-container { flex-direction: column; align-items: center; }
             .info-panel { width: 100%; position: static; min-height: auto; }
@@ -161,8 +151,6 @@
                 
                 <map name="skeleton-map" id="skeleton-map"></map>
                 <div id="active-highlight"></div>
-                <div id="click-marker" class="coord-marker"></div>
-                <div id="debug-areas"></div>
             </div>
         </div>
 
@@ -200,42 +188,6 @@
                     <button class="bone-tag" data-bone="стопа_левая">Стопа (Л)</button>
                     <button class="bone-tag" data-bone="стопа_правая">Стопа (П)</button>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="dev-tools">
-        <p style="font-size: 0.8rem; margin-bottom: 5px;">Панель создателя</p>
-        <button class="tool-btn" id="toggle-tool">🛠 Настройка координат</button>
-        <button class="tool-btn" id="debug-toggle">👀 Показать зоны</button>
-        
-        <div class="coord-tool" id="coord-tool">
-            <h3>🔧 Инструмент настройки</h3>
-            <p><strong>Последний клик:</strong> <span id="coords-display">...</span></p>
-            <p><strong>Выбранная кость:</strong> 
-                <select id="bone-select" style="padding: 5px; border-radius: 5px; border: 1px solid #ccc;">
-                    <option value="череп">Череп</option>
-                    <option value="позвоночник">Позвоночник</option>
-                    <option value="грудная клетка">Грудная клетка</option>
-                    <option value="таз">Таз</option>
-                    <option value="плечо_левое">Плечо (левое)</option>
-                    <option value="плечо_правое">Плечо (правое)</option>
-                    <option value="предплечье_левое">Предплечье (левое)</option>
-                    <option value="предплечье_правое">Предплечье (правое)</option>
-                    <option value="кисть_левая">Кисть (левая)</option>
-                    <option value="кисть_правая">Кисть (правая)</option>
-                    <option value="бедро_левое">Бедро (левое)</option>
-                    <option value="бедро_правое">Бедро (правое)</option>
-                    <option value="голень_левая">Голень (левая)</option>
-                    <option value="голень_правая">Голень (правая)</option>
-                    <option value="стопа_левая">Стопа (левая)</option>
-                    <option value="стопа_правая">Стопа (правая)</option>
-                </select>
-            </p>
-            <p>Текущие: <span id="current-bone-coords"></span></p>
-            <div style="margin-top: 10px;">
-                <button class="tool-btn" id="set-coords" style="background: #34C759;">Записать</button>
-                <button class="tool-btn" id="finish-tool" style="background: #007AFF;">Закрыть</button>
             </div>
         </div>
     </div>
@@ -357,22 +309,6 @@
         const tagsSection = document.getElementById('tags-section');
         const boneButtons = document.querySelectorAll('.bone-tag');
         
-        // Инструменты
-        const coordTool = document.getElementById('coord-tool');
-        const toggleToolBtn = document.getElementById('toggle-tool');
-        const debugToggleBtn = document.getElementById('debug-toggle');
-        const coordsDisplay = document.getElementById('coords-display');
-        const boneSelect = document.getElementById('bone-select');
-        const currentBoneCoords = document.getElementById('current-bone-coords');
-        const setCoordsBtn = document.getElementById('set-coords');
-        const finishToolBtn = document.getElementById('finish-tool');
-        const clickMarker = document.getElementById('click-marker');
-        const debugAreasContainer = document.getElementById('debug-areas');
-        
-        let toolActive = false;
-        let debugActive = false;
-        let lastClickCoords = {x: 0, y: 0};
-        
         // Переменные для Экзамена
         let isQuizMode = false;
         let quizTargetBone = null;
@@ -477,11 +413,10 @@
             }
         }
 
-        // ========== ОТОБРАЖЕНИЕ ИНФО (ИСПРАВЛЕНО ДЛЯ ТЕЛЕФОНА) ==========
+        // ========== ОТОБРАЖЕНИЕ ИНФО ==========
         function showBoneInfo(boneKey) {
             const bone = bonesData[boneKey];
             if (!bone) return;
-            if (toolActive) return;
 
             boneInfo.innerHTML = `
                 <div style="display: flex; align-items: center; justify-content: space-between;">
@@ -513,7 +448,7 @@
             
             defaultContent.style.display = 'none';
 
-            // Подсветка (ИСПРАВЛЕННАЯ ЛОГИКА С МАСШТАБОМ)
+            // Подсветка
             const currentWidth = skeletonImage.clientWidth || 500;
             const originalWidth = 500;
             const scale = currentWidth / originalWidth;
@@ -524,7 +459,6 @@
                 const highlight = document.getElementById('active-highlight');
                 if (highlight) {
                     highlight.style.display = 'block';
-                    // Умножаем на масштаб, чтобы на телефоне рамка попадала на кость
                     highlight.style.left = (x1 * scale) + 'px';
                     highlight.style.top = (y1 * scale) + 'px';
                     highlight.style.width = ((x2 - x1) * scale) + 'px';
@@ -549,7 +483,6 @@
             });
         }
 
-        // Обновляем слушатели событий для кнопок (нужно для новых кнопок)
         document.querySelectorAll('.bone-tag').forEach(button => {
             button.addEventListener('click', function() {
                 if (isQuizMode) {
@@ -560,13 +493,6 @@
                 showBoneInfo(boneKey);
             });
         });
-
-        function getImageCoords(event) {
-            const rect = skeletonImage.getBoundingClientRect();
-            const x = Math.round(event.clientX - rect.left);
-            const y = Math.round(event.clientY - rect.top);
-            return {x, y};
-        }
 
         function updateMapAreas() {
             const map = document.getElementById('skeleton-map');
@@ -588,93 +514,8 @@
                 area.style.cursor = 'pointer'; 
                 map.appendChild(area);
             }
-            updateDebugAreas();
             attachAreaEvents();
-            localStorage.removeItem('skeletonCoords'); 
-            updateCurrentBoneCoordsDisplay();
         }
-
-        function updateDebugAreas() {
-            debugAreasContainer.innerHTML = '';
-            if (!debugActive) return;
-            const currentWidth = skeletonImage.clientWidth || 500;
-            const scale = currentWidth / 500;
-
-            for (const [bone, coords] of Object.entries(areasCoords)) {
-                const [x1, y1, x2, y2] = coords.split(',').map(Number);
-                const debugDiv = document.createElement('div');
-                debugDiv.className = 'area-debug';
-                debugDiv.style.left = (x1 * scale) + 'px';
-                debugDiv.style.top = (y1 * scale) + 'px';
-                debugDiv.style.width = ((x2 - x1) * scale) + 'px';
-                debugDiv.style.height = ((y2 - y1) * scale) + 'px';
-                debugDiv.style.display = 'block';
-                debugAreasContainer.appendChild(debugDiv);
-            }
-        }
-
-        skeletonImage.addEventListener('click', function(event) {
-            const coords = getImageCoords(event);
-            lastClickCoords = coords;
-            clickMarker.style.left = (coords.x - 5) + 'px';
-            clickMarker.style.top = (coords.y - 5) + 'px';
-            if (toolActive) {
-                clickMarker.style.display = 'block';
-                coordsDisplay.textContent = `${coords.x}, ${coords.y}`;
-            }
-        });
-
-        toggleToolBtn.addEventListener('click', function() {
-            toolActive = !toolActive;
-            coordTool.classList.toggle('active', toolActive);
-            toggleToolBtn.textContent = toolActive ? 'Закрыть настройку' : '🛠 Настройка координат';
-            skeletonImage.style.cursor = toolActive ? 'crosshair' : 'pointer';
-            if (!toolActive) clickMarker.style.display = 'none';
-        });
-
-        debugToggleBtn.addEventListener('click', function() {
-            debugActive = !debugActive;
-            debugToggleBtn.textContent = debugActive ? 'Скрыть зоны' : '👀 Показать зоны';
-            updateDebugAreas();
-        });
-
-        function updateCurrentBoneCoordsDisplay() {
-            const selectedBone = boneSelect.value;
-            currentBoneCoords.textContent = areasCoords[selectedBone] || 'не заданы';
-        }
-        boneSelect.addEventListener('change', updateCurrentBoneCoordsDisplay);
-
-        setCoordsBtn.addEventListener('click', function() {
-            const selectedBone = boneSelect.value;
-            const x = lastClickCoords.x;
-            const y = lastClickCoords.y;
-            
-            // Получаем реальные координаты без масштаба для сохранения
-            const currentWidth = skeletonImage.clientWidth || 500;
-            const scale = 500 / currentWidth; // Обратный масштаб
-            
-            const rx = Math.round(x * scale);
-            const ry = Math.round(y * scale);
-            const w = 40; 
-            
-            const x1 = rx - w;
-            const y1 = ry - w;
-            const x2 = rx + w;
-            const y2 = ry + w;
-            
-            areasCoords[selectedBone] = `${x1},${y1},${x2},${y2}`;
-            updateCurrentBoneCoordsDisplay();
-            updateMapAreas();
-            alert(`Координаты для "${selectedBone}" обновлены!`);
-        });
-
-        finishToolBtn.addEventListener('click', function() {
-            toolActive = false;
-            coordTool.classList.remove('active');
-            toggleToolBtn.textContent = '🛠 Настройка координат';
-            skeletonImage.style.cursor = 'pointer';
-            clickMarker.style.display = 'none';
-        });
 
         window.addEventListener('resize', () => { updateMapAreas(); });
         
